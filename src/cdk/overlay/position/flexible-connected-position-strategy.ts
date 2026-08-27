@@ -113,6 +113,9 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
   /** Cached container dimensions */
   private _containerRect!: Dimensions;
 
+  /** Effective CSS zoom of the overlay positioning context. */
+  private _cssZoom = 1;
+
   /** Amount of space that must be maintained between the overlay and the right edge of the viewport. */
   private _viewportMargin: ViewportMargin = 0;
 
@@ -246,6 +249,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
     this._clearPanelClasses();
     this._resetOverlayElementStyles();
     this._resetBoundingBoxStyles();
+    this._cssZoom = this._getEffectiveZoom();
 
     // We need the bounding rects for the origin, the overlay and the container to determine how to position
     // the overlay relative to the origin.
@@ -311,7 +315,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
     }
 
     // If there are any positions where the overlay would fit with flexible dimensions, choose the
-    // one that has the greatest area available modified by the position's weight
+    // one that has the greatest area available modified by the positions' weight
     if (flexibleFits.length) {
       let bestFit: FlexibleFit | null = null;
       let bestScore = -1;
@@ -339,7 +343,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
     }
 
     // All options for getting the overlay within the viewport have been exhausted, so go with the
-    // position that went off-screen the least.
+    // position that goes off-screen the least.
     this._applyPosition(fallback!.position, fallback!.originPoint);
   }
 
@@ -398,6 +402,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
     const lastPosition = this._lastPosition;
 
     if (lastPosition) {
+      this._cssZoom = this._getEffectiveZoom();
       this._originRect = this._getOriginRect();
       this._overlayRect = this._pane.getBoundingClientRect();
       this._viewportRect = this._getNarrowedViewportRect();
@@ -673,7 +678,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
 
   /**
    * Whether the overlay can fit within the viewport when it may resize either its width or height.
-   * @param fit How well the overlay fits in the viewport at some position.
+   * @param fit How well the overlay fits into the viewport at some position.
    * @param point The (x, y) coordinates of the overlay at some position.
    * @param viewport The geometry of the viewport.
    */
@@ -936,12 +941,12 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
       const maxHeight = this._overlayRef.getConfig().maxHeight;
       const maxWidth = this._overlayRef.getConfig().maxWidth;
 
-      styles.width = coerceCssPixelValue(boundingBoxRect.width);
-      styles.height = coerceCssPixelValue(boundingBoxRect.height);
-      styles.top = coerceCssPixelValue(boundingBoxRect.top) || 'auto';
-      styles.bottom = coerceCssPixelValue(boundingBoxRect.bottom) || 'auto';
-      styles.left = coerceCssPixelValue(boundingBoxRect.left) || 'auto';
-      styles.right = coerceCssPixelValue(boundingBoxRect.right) || 'auto';
+      styles.width = this._toCssPixelValue(boundingBoxRect.width);
+      styles.height = this._toCssPixelValue(boundingBoxRect.height);
+      styles.top = this._toCssPixelValue(boundingBoxRect.top) || 'auto';
+      styles.bottom = this._toCssPixelValue(boundingBoxRect.bottom) || 'auto';
+      styles.left = this._toCssPixelValue(boundingBoxRect.left) || 'auto';
+      styles.right = this._toCssPixelValue(boundingBoxRect.right) || 'auto';
 
       // Push the pane content towards the proper direction.
       if (position.overlayX === 'center') {
@@ -1075,9 +1080,11 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
       // When using `bottom`, we adjust the y position such that it is the distance
       // from the bottom of the viewport rather than the top.
       const documentHeight = this._document.documentElement!.clientHeight;
-      styles.bottom = `${documentHeight - (overlayPoint.y + this._overlayRect.height)}px`;
+      styles.bottom = this._toCssPixelValue(
+        documentHeight - (overlayPoint.y + this._overlayRect.height),
+      );
     } else {
-      styles.top = coerceCssPixelValue(overlayPoint.y);
+      styles.top = this._toCssPixelValue(overlayPoint.y);
     }
 
     return styles;
@@ -1114,9 +1121,11 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
     // from the right edge of the viewport rather than the left edge.
     if (horizontalStyleProperty === 'right') {
       const documentWidth = this._document.documentElement!.clientWidth;
-      styles.right = `${documentWidth - (overlayPoint.x + this._overlayRect.width)}px`;
+      styles.right = this._toCssPixelValue(
+        documentWidth - (overlayPoint.x + this._overlayRect.width),
+      );
     } else {
-      styles.left = coerceCssPixelValue(overlayPoint.x);
+      styles.left = this._toCssPixelValue(overlayPoint.x);
     }
 
     return styles;
@@ -1193,6 +1202,19 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
     }
 
     return position.offsetY == null ? this._offsetY : position.offsetY;
+  }
+
+  /** Gets the effective CSS zoom for the overlay positioning context. */
+  private _getEffectiveZoom(): number {
+    const zoom = (
+      this._boundingBox as (HTMLElement & {currentCSSZoom?: number}) | null
+    )?.currentCSSZoom;
+    return typeof zoom === 'number' && zoom > 0 ? zoom : 1;
+  }
+
+  /** Converts a viewport pixel value into the overlay's local CSS coordinate space. */
+  private _toCssPixelValue(value: number | null | undefined): string {
+    return value == null ? '' : coerceCssPixelValue(value / this._cssZoom);
   }
 
   /** Validates that the current position match the expected values. */
@@ -1447,11 +1469,4 @@ export const STANDARD_DROPDOWN_BELOW_POSITIONS: ConnectedPosition[] = [
   {originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom'},
   {originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top'},
   {originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom'},
-];
-
-export const STANDARD_DROPDOWN_ADJACENT_POSITIONS: ConnectedPosition[] = [
-  {originX: 'end', originY: 'top', overlayX: 'start', overlayY: 'top'},
-  {originX: 'end', originY: 'bottom', overlayX: 'start', overlayY: 'bottom'},
-  {originX: 'start', originY: 'top', overlayX: 'end', overlayY: 'top'},
-  {originX: 'start', originY: 'bottom', overlayX: 'end', overlayY: 'bottom'},
 ];
