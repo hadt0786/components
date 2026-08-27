@@ -314,8 +314,8 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
       }
     }
 
-    // If there are any positions where the overlay would fit with flexible dimensions, choose the
-    // one that has the greatest area available modified by the positions' weight
+    // If there are any positions where the overlay will fit with flexible dimensions, choose the
+    // one that has the greatest area available modified by the position's weight
     if (flexibleFits.length) {
       let bestFit: FlexibleFit | null = null;
       let bestScore = -1;
@@ -343,7 +343,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
     }
 
     // All options for getting the overlay within the viewport have been exhausted, so go with the
-    // position that goes off-screen the least.
+    // position that went off-screen the least.
     this._applyPosition(fallback!.position, fallback!.originPoint);
   }
 
@@ -678,7 +678,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
 
   /**
    * Whether the overlay can fit within the viewport when it may resize either its width or height.
-   * @param fit How well the overlay fits into the viewport at some position.
+   * @param fit How well the overlay fits in the viewport at some position.
    * @param point The (x, y) coordinates of the overlay at some position.
    * @param viewport The geometry of the viewport.
    */
@@ -1469,4 +1469,11 @@ export const STANDARD_DROPDOWN_BELOW_POSITIONS: ConnectedPosition[] = [
   {originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom'},
   {originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top'},
   {originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom'},
+];
+
+export const STANDARD_DROPDOWN_ADJACENT_POSITIONS: ConnectedPosition[] = [
+  {originX: 'end', originY: 'top', overlayX: 'start', overlayY: 'top'},
+  {originX: 'end', originY: 'bottom', overlayX: 'start', overlayY: 'bottom'},
+  {originX: 'start', originY: 'top', overlayX: 'end', overlayY: 'top'},
+  {originX: 'start', originY: 'bottom', overlayX: 'end', overlayY: 'bottom'},
 ];
